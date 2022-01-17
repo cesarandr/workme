@@ -66,6 +66,9 @@ impl Workout {
             max_intensity += exercise.intensity;
             full_duration += exercise.duration;
         }
+
+        self.intensity = max_intensity;
+        self.duration = full_duration;
     }
 
     pub fn new_settings(&mut self, path: &str) {
@@ -85,6 +88,14 @@ impl Workout {
     }
 
     pub fn display_workout(&self) {
-        println!("Workout");
+        println!("Your Workout");
+        println!("-------------------------");
+        print!("Duration: ca. {}", self.duration/60);
+        print!(" | ");
+        println!("Intensity: {}", self.intensity);
+        println!("");
+        for exercise in self.excercises.values() {
+            println!("{}: {}x", exercise.exercise, exercise.repetitions());
+        }
     }
 }
