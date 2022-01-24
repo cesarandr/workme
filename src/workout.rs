@@ -1,34 +1,80 @@
-mod exercise;
+extern crate chrono;
+
 pub mod body_section;
+mod exercise;
+
 
 use std::fs::File;
 use std::io::Read;
 use std::collections::HashMap;
 use rand::Rng;
+use chrono::offset::Utc;
+use chrono::DateTime;
 use std::time::SystemTime;
 use sqlite::{ self, Value };
+use serde::{ Deserialize, Serialize };
+
 
 // Workout definition
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Workout {
     pub intensity: u32,
     pub section: body_section::BodySection,
     pub duration: u32,
     pub excercises: HashMap<String, exercise::Exercise>,
     pub breaks: f32,
+    completed: bool,
     settings: HashMap<String, String>,
     statistics: HashMap<String, String>
 }
 
 impl Workout {
     pub fn new(intensity: u32, section: body_section::BodySection) -> Workout {
-        let mut settings = HashMap::new();
-        settings.insert(String::from("maximum exercises"), String::from("10"));
-        settings.insert(String::from("maximum repetitions"), String::from("50"));
+        let connection = sqlite::open("/home/cesar/Projekte/Rust/workme/src/user.db").unwrap();
 
-        let mut statistics = HashMap::new();
-        statistics.insert(String::from("complete intensity"), String::from("0"));
+        let statement = connection.prepare("SELECT * FROM workouts WHERE completed = 0").unwrap();
+        let count = statement.column_count();
 
-        Workout { intensity, section, duration: 0, excercises: HashMap::new() , breaks: 4.0, settings, statistics }
+        let mut cursor = statement.into_cursor();
+        let json_workout = cursor.next().unwrap().unwrap()[2].as_string().unwrap();
+
+        if count > 0 {
+            println!("{}", json_workout);
+            let workout: Workout = serde_json::from_str(&json_workout).unwrap();
+            println!{"{}", workout.intensity};
+            Workout { 
+                intensity: workout.intensity, 
+                section: workout.section,
+                duration: workout.duration, 
+                excercises: workout.excercises, 
+                breaks: workout.breaks, 
+                settings: workout.settings,
+                statistics: workout.statistics,
+                completed: workout.completed,
+            }
+
+        } else {
+            let mut settings = HashMap::new();
+            settings.insert(String::from("maximum exercises"), String::from("10"));
+            settings.insert(String::from("maximum repetitions"), String::from("50"));
+
+            let mut statistics = HashMap::new();
+            statistics.insert(String::from("complete intensity"), String::from("0"));
+
+            Workout { 
+                intensity, 
+                section, 
+                duration: 0, 
+                excercises: HashMap::new(), 
+                breaks: 4.0, settings, 
+                statistics, 
+                completed: false 
+            }
+        }
+    }
+
+    pub fn current() {
     }
 
     pub fn generate_excercises(&mut self) {
@@ -109,14 +155,18 @@ impl Workout {
     }
 
     pub fn save(&self) {
-        let connection = sqlite::open("exercises.db").unwrap();
-        let time = SystemTime::now(); // need good conversion for system time into sqlite datatype
-        let mut cursor = connection.prepare("INSERT VALUE INTO workouts (date, intensity, duration, section, estimated_duration) VALUES (:date, :intensity, :duration, :section, :estimated);").unwrap().into_cursor();
-        cursor.bind_by_name(vec![(":date", Value::String(String::from("test"))), 
-                                 (":intensity", Value::Integer(self.intensity as i64)), 
-                                 (":duration", Value::Integer(self.duration as i64)),
-                                 (":section", Value::String(self.section.to_string())),
-                                 (":estimated", Value::Integer(self.duration as i64)) ]).unwrap();
+        let system_time = SystemTime::now();
+        let datetime: DateTime<Utc> = system_time.into(); // convert time to string
+        let date = datetime.format("%d/%m/%Y %T").to_string();
+        let workout_json = serde_json::to_string(&self).unwrap();
+
+        let connection = sqlite::open("/home/cesar/Projekte/Rust/workme/src/user.db").unwrap();
+        let mut cursor = connection.prepare("INSERT INTO workouts (data, date, completed) VALUES (:data, :date, :completed);").unwrap().into_cursor();
+        cursor.bind_by_name(vec![(":data", Value::String(workout_json)), (":date", Value::String(date)), (":completed", Value::Integer(self.completed as i64))]).unwrap();
         cursor.next().unwrap();
+    }
+
+    pub fn completed(&mut self, status: bool) {
+        self.completed = status;
     }
 }
