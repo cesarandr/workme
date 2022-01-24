@@ -1,8 +1,10 @@
 use crate::workout::body_section as body_section;
 use std::collections::HashMap;
 use sqlite::{ self, Value };
+use serde::{ Serialize, Deserialize };
 
 // Excerices defintion
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Exercise {
     pub exercise: String,
     pub duration: u32,
