@@ -1,8 +1,9 @@
 use std::fmt;
 use std::str::FromStr;
+use serde::{ Serialize, Deserialize};
 
 // Body Sections
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BodySection {
     Upper,
     Core,
